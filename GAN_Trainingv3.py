@@ -1,10 +1,4 @@
 # -*- coding: utf-8 -*-
-"""
-Created on Sat Jul 15 16:23:18 2017
-
-@author: Pavitrakumar
-"""
-
 import os
 import glob
 os.environ["KERAS_BACKEND"] = "tensorflow"
@@ -37,7 +31,7 @@ K.set_image_dim_ordering('tf')
 
 from collections import deque
 
-np.random.seed(1337)
+np.random.seed(40)
 
 def norm_img(img):
     img = (img / 127.5) - 1
@@ -48,20 +42,15 @@ def denorm_img(img):
     return img.astype(np.uint8) 
 
 
-def sample_from_dataset(batch_size, image_shape, data_dir=None, data = None):
+def sample_from_dataset(batch_size, image_shape, data_dir=None):
     sample_dim = (batch_size,) + image_shape
     sample = np.empty(sample_dim, dtype=np.float32)
     all_data_dirlist = list(glob.glob(data_dir))
-    # print('de:',all_data_dirlist)
     sample_imgs_paths = np.random.choice(all_data_dirlist, batch_size)
     for index,img_filename in enumerate(sample_imgs_paths):
         image = Image.open(img_filename)
-        #print(image.size)
-        #image.thumbnail(image_shape[:-1], Image.ANTIALIAS) - this maintains aspect ratio ; we dont want that - we need m x m size
         image = image.resize(image_shape[:-1])
         image = image.convert('RGB') #remove transparent ('A') layer
-        #print(image.size)
-        #print('\n')
         image = np.asarray(image)
         image = norm_img(image)
         sample[index,...] = image
@@ -69,12 +58,12 @@ def sample_from_dataset(batch_size, image_shape, data_dir=None, data = None):
 
 
 def gen_noise(batch_size, noise_shape):
-    #input noise to gen seems to be very important!
+
     return np.random.normal(0, 1, size=(batch_size,)+noise_shape)
 
 
 def generate_images(generator, save_dir):
-    noise = gen_noise(batch_size,noise_shape)
+    noise = gen_noise(batch_size, noise_shape)
     #using noise produced by np.random.uniform - the generator seems to produce same image for ANY noise - 
     #but those images (even though they are the same) are very close to the actual image - experiment with it later.
     fake_data_X = generator.predict(noise)
@@ -130,14 +119,13 @@ img_save_dir = "output/"
 
 save_model = False
 
+image_shape = (64, 64, 3)
 
-
-#image_shape = (96,96,3)
-image_shape = (64,64,3)
 data_dir =  "faces/*.jpg"
-#data_dir = "E:\\GAN_Datasets\\curl\\online_ds\\thumb\\*\\*.png"
+
 log_dir = img_save_dir
-save_model_dir = img_save_dir
+
+save_model_dir = "models/"
 
 discriminator = get_disc_normal(image_shape)
 generator = get_gen_normal(noise_shape)
@@ -147,6 +135,8 @@ discriminator.trainable = False
 
 opt = Adam(lr=0.00015, beta_1=0.5) #same as gen
 gen_inp = Input(shape=noise_shape)
+
+
 GAN_inp = generator(gen_inp)
 GAN_opt = discriminator(GAN_inp)
 gan = Model(input = gen_inp, output = GAN_opt)
@@ -162,7 +152,6 @@ avg_GAN_loss = deque([0], maxlen=250)
 
 for step in range(num_steps): 
     tot_step = step
-    print("Begin step: ", tot_step)
     step_begin_time = time.time() 
     
     real_data_X = sample_from_dataset(batch_size, image_shape, data_dir = data_dir)
@@ -171,7 +160,7 @@ for step in range(num_steps):
     
     fake_data_X = generator.predict(noise)
     
-    if (tot_step % 10) == 0:
+    if (tot_step % 100) == 0:
         step_num = str(tot_step).zfill(4)
         save_img_batch(fake_data_X,img_save_dir+step_num+"_image.png")
 
@@ -192,7 +181,7 @@ for step in range(num_steps):
     dis_metrics_real = discriminator.train_on_batch(real_data_X,real_data_Y)   #training seperately on real
     dis_metrics_fake = discriminator.train_on_batch(fake_data_X,fake_data_Y)   #training seperately on fake
     
-    print("Disc: real loss: %f fake loss: %f" % (dis_metrics_real[0], dis_metrics_fake[0]))
+    print("Step: {} Disc: real loss: {} fake loss: {}".fomat(step, dis_metrics_real[0], dis_metrics_fake[0]))
     
     
     avg_disc_fake_loss.append(dis_metrics_fake[0])
@@ -200,7 +189,7 @@ for step in range(num_steps):
     
     generator.trainable = True
 
-    GAN_X = gen_noise(batch_size,noise_shape)
+    GAN_X = gen_noise(batch_size, noise_shape)
 
     GAN_Y = real_data_Y
     

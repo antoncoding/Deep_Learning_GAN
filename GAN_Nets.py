@@ -11,10 +11,9 @@ import numpy as np
 from sklearn.utils import shuffle
 import time
 import cv2
-# import tqdm
+
 from PIL import Image
-from keras.layers import Dense
-from keras.layers import Reshape
+from keras.layers import Dense, Embedding, Reshape
 from keras.layers.core import Activation
 from keras.layers.normalization import BatchNormalization
 from keras.layers.convolutional import UpSampling2D
@@ -27,7 +26,7 @@ from keras.optimizers import SGD, Adam, RMSprop
 from keras.layers.advanced_activations import LeakyReLU
 import matplotlib.pyplot as plt
 from misc_layers import MinibatchDiscrimination, SubPixelUpscaling, CustomLRELU, bilinear2x
-# from keras.layers.convolutional import SubPixelUpscaling
+
 from keras.datasets import mnist
 import keras.backend as K
 from keras.initializers import RandomNormal
@@ -51,6 +50,10 @@ def get_gen_normal(noise_shape):
     kernel_init = 'glorot_uniform'
     
     gen_input = Input(shape = noise_shape) #if want to directly use with conv layer next
+
+    hair_input = Input(shape= (1,))
+    hair = Embedding(hair_len, 50)(hair_input)
+
     #gen_input = Input(shape = [noise_shape]) #if want to use with dense layer next
     
     generator = Conv2DTranspose(filters = 512, kernel_size = (4,4), strides = (1,1), padding = "valid", data_format = "channels_last", kernel_initializer = kernel_init)(gen_input)
@@ -102,6 +105,9 @@ def get_gen_normal(noise_shape):
 #------------------------------------------------------------------------------------------
 
 def get_disc_normal(image_shape=(64,64,3)):
+    # need add output
+
+
     image_shape = image_shape
     
     dropout_prob = 0.4
@@ -140,9 +146,11 @@ def get_disc_normal(image_shape=(64,64,3)):
     discriminator = Activation('sigmoid')(discriminator)
     
     dis_opt = Adam(lr=0.0002, beta_1=0.5)
+    
     discriminator_model = Model(input = dis_input, output = discriminator)
     discriminator_model.compile(loss='binary_crossentropy', optimizer=dis_opt, metrics=['accuracy'])
     discriminator_model.summary()
+    
     return discriminator_model
 
 #------------------------------------------------------------------------------------------
